@@ -26,3 +26,5 @@ Thumbs.db
 
 # If using Jupyter
 .ipynb_checkpoints/
+
+energy_data.db
