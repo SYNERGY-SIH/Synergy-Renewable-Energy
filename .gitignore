@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# IDE / Editor settings
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Logs & temp files
+*.log
+*.tmp
+
+# Byte-compiled / optimized files
+*.egg-info/
+.eggs/
+
+# If using Jupyter
+.ipynb_checkpoints/

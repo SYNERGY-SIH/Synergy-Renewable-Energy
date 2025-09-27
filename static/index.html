@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campus Energy Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.7), transparent);
+            transition: left 0.5s;
+        }
+        
+        .metric-card:hover::before {
+            left: 100%;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+        
+        .chart-container { 
+            position: relative; 
+            height: 350px; 
+        }
+        
+        .flow-line { 
+            stroke-dasharray: 8, 4; 
+            animation: dash 1.5s linear infinite; 
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+        
+        @keyframes dash { 
+            to { stroke-dashoffset: -12; } 
+        }
+        
+        .status-indicator {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-online::after {
+            background-color: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #34d399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .nav-header {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        .battery-indicator {
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .battery-fill {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.8s ease;
+            position: relative;
+        }
+        
+        .battery-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .alert-banner {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const API_BASE_URL = "/api";
+
+        // Status Indicator Component
+        const StatusIndicator = ({ status }) => (
+            <div className={`status-indicator ${status === 'online' ? 'status-online' : ''}`}>
+                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
+            </div>
+        );
+
+        // Enhanced KPI Card Component
+        const KpiCard = ({ title, value, unit, icon, color, trend, subtitle }) => (
+            <div className="metric-card p-6">
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-400 mb-1">{title}</p>
+                        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+                    </div>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color} shadow-lg`}>
+                        {icon}
+                    </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-white">{value}</span>
+                    <span className="text-lg text-slate-300 font-medium">{unit}</span>
+                    {trend && (
+                        <span className={`text-sm px-2 py-1 rounded-full ${
+                            trend > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                            {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
+                        </span>
+                    )}
+                </div>
+            </div>
+        );
+
+        // Enhanced Energy Flow Diagram
+        const EnergyFlowDiagram = ({ data }) => {
+            const { solar_power_kw, wind_power_kw, grid_power_kw, campus_load_kw, is_charging } = data;
+            const batteryFlow = solar_power_kw + wind_power_kw - campus_load_kw;
+            
+            const FlowLine = ({ isActive, d, color = "#38bdf8" }) => (
+                <path 
+                    d={d} 
+                    stroke={isActive ? color : "#475569"} 
+                    strokeWidth="3" 
+                    fill="none" 
+                    className={isActive ? 'flow-line' : ''} 
+                />
+            );
+
+            const NodeBox = ({ x, y, width, height, title, value, color, isActive }) => (
+                <g>
+                    <rect 
+                        x={x} 
+                        y={y} 
+                        width={width} 
+                        height={height} 
+                        rx="12" 
+                        fill={isActive ? "rgba(30, 41, 59, 0.9)" : "rgba(51, 65, 85, 0.7)"} 
+                        stroke={isActive ? color : "rgba(148, 163, 184, 0.3)"}
+                        strokeWidth="2"
+                    />
+                    <text x={x + width/2} y={y + 20} textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="500">
+                        {title}
+                    </text>
+                    <text x={x + width/2} y={y + 35} textAnchor="middle" fill={color} fontSize="13" fontWeight="bold">
+                        {value} kW
+                    </text>
+                </g>
+            );
+
+            return (
+                <div className="glass-card p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-white">Live Energy Flow</h3>
+                        <StatusIndicator status="online" />
+                    </div>
+                    <svg viewBox="0 0 500 260" className="w-full h-full">
+                        {/* Energy Sources */}
+                        <NodeBox x={30} y={10} width={100} height={50} title="Solar Panel" value={solar_power_kw.toFixed(1)} color="#f59e0b" isActive={solar_power_kw > 0} />
+                        <NodeBox x={30} y={80} width={100} height={50} title="Wind Turbine" value={wind_power_kw.toFixed(1)} color="#22d3ee" isActive={wind_power_kw > 0} />
+                        <NodeBox x={30} y={200} width={100} height={50} title="Grid Supply" value={grid_power_kw.toFixed(1)} color="#f87171" isActive={grid_power_kw > 0} />
+                        
+                        {/* Junction */}
+                        <NodeBox x={200} y={105} width={100} height={50} title="Distribution" value="HUB" color="#94a3b8" isActive={true} />
+                        
+                        {/* Consumers */}
+                        <NodeBox x={370} y={10} width={100} height={50} title="Campus Load" value={campus_load_kw.toFixed(1)} color="#a78bfa" isActive={campus_load_kw > 0} />
+                        <NodeBox x={370} y={200} width={100} height={50} title="Battery Bank" value={is_charging ? 'Charging' : 'Standby'} color={is_charging ? "#22c55e" : "#facc15"} isActive={Math.abs(batteryFlow) > 1} />
+                        
+                        {/* Flow Lines - FINAL */}
+                        <FlowLine isActive={solar_power_kw > 5} d="M130 35 H 165 V 115 H 200" color="#f59e0b" />
+                        <FlowLine isActive={wind_power_kw > 5} d="M130 105 H 165 V 130 H 200" color="#22d3ee" />
+                        <FlowLine isActive={grid_power_kw > 5} d="M130 225 H 165 V 145 H 200" color="#f87171" />
+
+                        <FlowLine isActive={campus_load_kw > 5} d="M300 130 L 335 130 L 335 35 L 370 35" color="#a78bfa" />
+                        <FlowLine isActive={batteryFlow > 1 && is_charging} d="M300 130 L 335 130 L 335 225 L 370 225" color="#22c55e" />
+                        <FlowLine isActive={batteryFlow < -1 && !is_charging} d="M370 225 L 335 225 L 335 130 L 300 130" color="#facc15" />
+                    </svg>
+                </div>
+            );
+        };
+        
+        // Enhanced History Chart
+        const HistoryChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                if (chartRef.current) { chartRef.current.destroy(); }
+                
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.timestamps,
+                        datasets: [
+                            { 
+                                label: 'Solar Generation', 
+                                data: data.solar_power_kw, 
+                                borderColor: '#f59e0b', 
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                fill: true, 
+                                pointRadius: 2,
+                                pointHoverRadius: 6,
+                                borderWidth: 3, 
+                                tension: 0.4,
+                                pointBackgroundColor: '#f59e0b',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2
+                            },
+                            { 
+                                label: 'Campus Consumption', 
+                                data: data.campus_load_kw, 
+                                borderColor: '#a78bfa', 
+                                backgroundColor: 'rgba(167, 139, 250, 0.1)', 
+                                fill: true, 
+                                pointRadius: 2,
+                                pointHoverRadius: 6,
+                                borderWidth: 3, 
+                                tension: 0.4,
+                                pointBackgroundColor: '#a78bfa',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2
+                            },
+                            { 
+                                label: 'Battery Level', 
+                                data: data.battery_percentage, 
+                                borderColor: '#22c55e', 
+                                backgroundColor: 'rgba(34, 197, 94, 0.05)', 
+                                fill: false, 
+                                pointRadius: 2,
+                                pointHoverRadius: 6,
+                                borderWidth: 3, 
+                                tension: 0.4, 
+                                yAxisID: 'y1',
+                                pointBackgroundColor: '#22c55e',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2
+                            },
+                        ]
+                    },
+                    options: {
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: { 
+                                labels: { 
+                                    color: '#e2e8f0',
+                                    font: { size: 12, weight: '500' },
+                                    padding: 20,
+                                    usePointStyle: true
+                                },
+                                position: 'top'
+                            }, 
+                            tooltip: { 
+                                mode: 'index', 
+                                intersect: false, 
+                                backgroundColor: 'rgba(30, 41, 59, 0.95)', 
+                                titleColor: '#f1f5f9', 
+                                bodyColor: '#e2e8f0', 
+                                borderColor: '#475569', 
+                                borderWidth: 1,
+                                cornerRadius: 8,
+                                displayColors: true,
+                                titleFont: { size: 13, weight: '600' },
+                                bodyFont: { size: 12 }
+                            } 
+                        },
+                        scales: {
+                            x: { 
+                                type: 'time', 
+                                time: { 
+                                    unit: 'minute', 
+                                    tooltipFormat: 'HH:mm:ss', 
+                                    displayFormats: { minute: 'HH:mm' } 
+                                }, 
+                                ticks: { 
+                                    color: '#94a3b8',
+                                    font: { size: 11 }
+                                }, 
+                                grid: { 
+                                    color: 'rgba(51, 65, 85, 0.3)',
+                                    drawBorder: false
+                                },
+                                border: { display: false }
+                            },
+                            y: { 
+                                beginAtZero: true, 
+                                ticks: { 
+                                    color: '#94a3b8',
+                                    font: { size: 11 },
+                                    callback: (value) => `${value} kW`
+                                }, 
+                                grid: { 
+                                    color: 'rgba(51, 65, 85, 0.3)',
+                                    drawBorder: false
+                                }, 
+                                title: { 
+                                    display: true, 
+                                    text: 'Power (kW)', 
+                                    color: '#94a3b8',
+                                    font: { size: 12, weight: '500' }
+                                },
+                                border: { display: false }
+                            },
+                            y1: { 
+                                position: 'right', 
+                                min: 0, 
+                                max: 100, 
+                                ticks: { 
+                                    color: '#94a3b8',
+                                    font: { size: 11 },
+                                    callback: (value) => `${value}%` 
+                                }, 
+                                grid: { 
+                                    drawOnChartArea: false,
+                                    drawBorder: false
+                                }, 
+                                title: { 
+                                    display: true, 
+                                    text: 'Battery Level (%)', 
+                                    color: '#94a3b8',
+                                    font: { size: 12, weight: '500' }
+                                },
+                                border: { display: false }
+                            }
+                        },
+                        interaction: { mode: 'index', intersect: false }
+                    }
+                });
+                return () => { if (chartRef.current) { chartRef.current.destroy(); } };
+            }, [data]);
+
+            return (
+                <div className="glass-card p-6">
+                    <h3 className="text-xl font-semibold text-white mb-6">Historical Performance Trends</h3>
+                    <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
+                </div>
+            );
+        };
+
+        // System Alerts Component
+        const SystemAlerts = ({ data }) => {
+            const alerts = [];
+            
+            if (data.battery_percentage < 20) {
+                alerts.push({ type: 'warning', message: 'Battery level critically low', icon: '⚠️' });
+            }
+            if (data.grid_power_kw > 100) {
+                alerts.push({ type: 'error', message: 'High grid dependency detected', icon: '🚨' });
+            }
+            if (data.renewable_generation_kw < 50 && new Date().getHours() >= 9 && new Date().getHours() <= 17) {
+                alerts.push({ type: 'info', message: 'Renewable generation below expected levels', icon: 'ℹ️' });
+            }
+
+            if (alerts.length === 0) return null;
+
+            return (
+                <div className="space-y-2">
+                    {alerts.map((alert, index) => (
+                        <div key={index} className={`alert-banner ${
+                            alert.type === 'error' ? 'bg-gradient-to-r from-red-600 to-red-700' :
+                            alert.type === 'warning' ? 'bg-gradient-to-r from-yellow-600 to-orange-600' :
+                            'bg-gradient-to-r from-blue-600 to-blue-700'
+                        }`}>
+                            <span className="text-lg">{alert.icon}</span>
+                            <span className="font-medium">{alert.message}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        function App() {
+            const [latestData, setLatestData] = useState(null);
+            const [historyData, setHistoryData] = useState(null);
+            const [statsData, setStatsData] = useState(null);
+            const [error, setError] = useState(null);
+            const [currentTime, setCurrentTime] = useState(new Date());
+
+            const fetchData = async () => {
+                try {
+                    const [latestRes, historyRes, statsRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/latest`), 
+                        fetch(`${API_BASE_URL}/history?minutes=30`), 
+                        fetch(`${API_BASE_URL}/stats`)
+                    ]);
+                    
+                    if (!latestRes.ok || !historyRes.ok || !statsRes.ok) {
+                        throw new Error('Network response was not ok. Please ensure the backend server is running.');
+                    }
+                    
+                    const latest = await latestRes.json(); 
+                    const history = await historyRes.json(); 
+                    const stats = await statsRes.json();
+                    
+                    setLatestData(latest); 
+                    setHistoryData(history); 
+                    setStatsData(stats); 
+                    setError(null);
+                } catch (e) { 
+                    setError(e.message); 
+                    console.error(e); 
+                }
+            };
+
+            useEffect(() => { 
+                fetchData(); 
+                const dataInterval = setInterval(fetchData, 2000); 
+                const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => {
+                    clearInterval(dataInterval);
+                    clearInterval(timeInterval);
+                }
+            }, []);
+
+            if (error) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-8">
+                        <div className="glass-card p-8 max-w-md text-center">
+                            <div className="text-red-400 text-6xl mb-4">⚠️</div>
+                            <h2 className="text-xl font-semibold text-white mb-2">System Connection Error</h2>
+                            <p className="text-red-400 mb-4">{error}</p>
+                            <button 
+                                onClick={fetchData}
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Retry Connection
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (!latestData || !historyData || !statsData) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="glass-card p-8 text-center">
+                            <div className="animate-spin w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                            <p className="text-lg text-slate-400">Loading Energy Management System...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen">
+                    {/* Navigation Header */}
+                    <header className="nav-header sticky top-0 z-50 px-6 py-4">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div>
+                                <h1 className="text-2xl font-bold gradient-text">Campus Energy Management System</h1>
+                                <p className="text-slate-400 text-sm mt-1">
+                                    Real-time monitoring and operational control
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <StatusIndicator status="online" />
+                                    <span className="text-sm text-green-400 font-medium">System Online</span>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm text-slate-400">Current Time</div>
+                                    <div className="font-semibold text-white">
+                                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto p-6 space-y-8">
+                        {/* System Alerts */}
+                        <SystemAlerts data={latestData} />
+
+                        {/* KPI Grid */}
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-6">Live System Metrics</h2>
+                            <div className="data-grid">
+                                <KpiCard 
+                                    title="Renewable Generation" 
+                                    subtitle="Solar + Wind Output"
+                                    value={latestData.renewable_generation_kw.toFixed(1)} 
+                                    unit="kW" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/></svg>} 
+                                    color="bg-gradient-to-br from-yellow-500 to-orange-500 shadow-yellow-500/20" 
+                                />
+                                
+                                <KpiCard 
+                                    title="Campus Load" 
+                                    subtitle="Total Energy Consumption"
+                                    value={latestData.campus_load_kw.toFixed(1)} 
+                                    unit="kW" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>} 
+                                    color="bg-gradient-to-br from-purple-500 to-indigo-500 shadow-purple-500/20" 
+                                />
+                                
+                                <KpiCard 
+                                    title="Grid Import" 
+                                    subtitle="External Power Draw"
+                                    value={latestData.grid_power_kw.toFixed(1)} 
+                                    unit="kW" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>} 
+                                    color="bg-gradient-to-br from-red-500 to-pink-500 shadow-red-500/20" 
+                                />
+                                
+                                <div className="metric-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-400">Battery Status</p>
+                                            <p className="text-xs text-slate-500">Energy Storage System</p>
+                                        </div>
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-green-500/20 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <rect x="1" y="6" width="18" height="12" rx="2"/>
+                                                <path d="M23 13v-2"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div className="battery-indicator w-full h-6 rounded-full mb-4">
+                                        <div 
+                                            className="battery-fill h-full rounded-full" 
+                                            style={{width: `${latestData.battery_percentage}%`}}
+                                        ></div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-2xl font-bold text-white">{latestData.battery_percentage.toFixed(1)}%</span>
+                                        <span className="text-sm text-slate-400">{latestData.battery_level_kwh.toFixed(1)} / 500 kWh</span>
+                                    </div>
+                                    <div className="mt-2 text-xs">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            latestData.is_charging 
+                                                ? 'bg-green-500/20 text-green-400' 
+                                                : 'bg-yellow-500/20 text-yellow-400'
+                                        }`}>
+                                            {latestData.is_charging ? '⚡ Charging' : '🔋 Standby'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Energy Flow Diagram */}
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-6">System Architecture & Flow</h2>
+                            <EnergyFlowDiagram data={latestData} />
+                        </section>
+
+                        {/* Performance Statistics */}
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-6">24-Hour Performance Summary</h2>
+                            <div className="data-grid">
+                                <KpiCard 
+                                    title="Renewable Energy Utilization" 
+                                    subtitle="Clean Energy Percentage"
+                                    value={statsData.renewable_usage_percentage.toFixed(1)} 
+                                    unit="%" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>} 
+                                    color="bg-gradient-to-br from-green-500 to-teal-500 shadow-green-500/20" 
+                                />
+                                
+                                <KpiCard 
+                                    title="Grid Energy Import" 
+                                    subtitle="External Power Consumed"
+                                    value={statsData.total_grid_kwh_24h.toFixed(1)} 
+                                    unit="kWh" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>} 
+                                    color="bg-gradient-to-br from-red-500 to-orange-500 shadow-red-500/20" 
+                                />
+                                
+                                <KpiCard 
+                                    title="Carbon Emissions Avoided" 
+                                    subtitle="Environmental Impact"
+                                    value={statsData.carbon_avoided_kg_24h.toFixed(1)} 
+                                    unit="kg CO₂" 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} 
+                                    color="bg-gradient-to-br from-sky-500 to-blue-500 shadow-sky-500/20" 
+                                />
+                                
+                                <div className="metric-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-400">System Efficiency</p>
+                                            <p className="text-xs text-slate-500">Overall Performance Rating</p>
+                                        </div>
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-blue-500/20 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <path d="M9 12l2 2 4-4"/>
+                                                <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.04 0 3.96.68 5.49 1.83"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-baseline gap-2 mb-3">
+                                        <span className="text-3xl font-bold text-white">
+                                            {Math.min(100, Math.max(0, statsData.renewable_usage_percentage * 1.2)).toFixed(0)}
+                                        </span>
+                                        <span className="text-lg text-slate-300 font-medium">/ 100</span>
+                                    </div>
+                                    <div className="w-full bg-slate-700 rounded-full h-2">
+                                        <div 
+                                            className="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-700" 
+                                            style={{width: `${Math.min(100, statsData.renewable_usage_percentage * 1.2)}%`}}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Historical Trends */}
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-6">Historical Analysis</h2>
+                            {historyData && <HistoryChart data={historyData} />}
+                        </section>
+
+                        {/* System Information Footer */}
+                        <section className="glass-card p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                                <div>
+                                    <h4 className="font-semibold text-white mb-2">System Specifications</h4>
+                                    <ul className="space-y-1 text-slate-400">
+                                        <li>• Solar Capacity: 250 kW</li>
+                                        <li>• Wind Capacity: 80 kW</li>
+                                        <li>• Battery Storage: 500 kWh</li>
+                                        <li>• Grid Connection: Active</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-white mb-2">Operational Status</h4>
+                                    <ul className="space-y-1 text-slate-400">
+                                        <li>• Data Collection: <span className="text-green-400">Real-time</span></li>
+                                        <li>• Update Frequency: 2 seconds</li>
+                                        <li>• System Health: <span className="text-green-400">Optimal</span></li>
+                                        <li>• Connection: <span className="text-green-400">Stable</span></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-white mb-2">Contact Information</h4>
+                                    <ul className="space-y-1 text-slate-400">
+                                        <li>• Technical Support: ext. 2847</li>
+                                        <li>• Facility Management: ext. 2850</li>
+                                        <li>• Emergency Line: ext. 911</li>
+                                        <li>• System Admin: energy@campus.edu</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="border-t border-slate-600 mt-6 pt-4 text-center text-xs text-slate-500">
+                                Campus Energy Management System v2.1 | © 2024 Campus Facilities Department | 
+                                Last System Maintenance: {new Date().toLocaleDateString()}
+                            </div>
+                        </section>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
