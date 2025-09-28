@@ -20,4 +20,6 @@ fastapi
 uvicorn[standard]
 gunicorn
 SQLAlchemy
+pandas
+prophet
 

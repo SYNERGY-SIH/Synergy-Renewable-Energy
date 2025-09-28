@@ -171,6 +171,52 @@
             from { transform: translateY(-20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
+
+        /* Specific styles for recommendations */
+        .rec-item {
+            display: flex;
+            background: rgba(45, 53, 67, 0.8);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .rec-item-orange { border-left: 5px solid #f59e0b; }
+        .rec-item-blue { border-left: 5px solid #38bdf8; }
+        .rec-item-green { border-left: 5px solid #22c55e; }
+        .rec-item-red { border-left: 5px solid #ef4444; }
+
+        .rec-tag {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .rec-tag-orange { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .rec-tag-blue { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+        .rec-tag-green { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .rec-tag-red { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        .rec-priority-icon {
+            font-size: 1.25rem;
+        }
+        .rec-priority-text {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .rec-priority-text-orange { color: #f59e0b; }
+        .rec-priority-text-blue { color: #38bdf8; }
+        .rec-priority-text-green { color: #22c55e; }
+        .rec-priority-text-red { color: #ef4444; }
+
+        .rec-message {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+        }
+
     </style>
 </head>
 <body>
@@ -260,7 +306,7 @@
                         {/* Energy Sources */}
                         <NodeBox x={30} y={10} width={100} height={50} title="Solar Panel" value={solar_power_kw.toFixed(1)} color="#f59e0b" isActive={solar_power_kw > 0} />
                         <NodeBox x={30} y={80} width={100} height={50} title="Wind Turbine" value={wind_power_kw.toFixed(1)} color="#22d3ee" isActive={wind_power_kw > 0} />
-                        <NodeBox x={30} y={200} width={100} height={50} title="Grid Supply" value={grid_power_kw.toFixed(1)} color="#f87171" isActive={grid_power_kw > 0} />
+                        <NodeBox x={30} y={200} width={100} height={50} title="Grid Supply" value={grid_power_kw < 0 ? Math.abs(grid_power_kw).toFixed(1) : "0.0"} color="#f87171" isActive={grid_power_kw < -0.1} />
                         
                         {/* Junction */}
                         <NodeBox x={200} y={105} width={100} height={50} title="Distribution" value="HUB" color="#94a3b8" isActive={true} />
@@ -270,13 +316,14 @@
                         <NodeBox x={370} y={200} width={100} height={50} title="Battery Bank" value={is_charging ? 'Charging' : 'Standby'} color={is_charging ? "#22c55e" : "#facc15"} isActive={Math.abs(batteryFlow) > 1} />
                         
                         {/* Flow Lines - FINAL */}
-                        <FlowLine isActive={solar_power_kw > 5} d="M130 35 H 165 V 115 H 200" color="#f59e0b" />
+                        <FlowLine isActive={solar_power_kw > 5} d="M130 35 H 165 V 130 H 200" color="#f59e0b" />
                         <FlowLine isActive={wind_power_kw > 5} d="M130 105 H 165 V 130 H 200" color="#22d3ee" />
-                        <FlowLine isActive={grid_power_kw > 5} d="M130 225 H 165 V 145 H 200" color="#f87171" />
+                        <FlowLine isActive={grid_power_kw < -0.1} d="M130 225 H 165 V 130 H 200" color="#f87171" /> {/* Grid IMPORT */}
+                        <FlowLine isActive={grid_power_kw > 0.1} d="M200 130 H 165 V 225 H 130" color="#10b981" /> {/* Grid EXPORT */}
 
                         <FlowLine isActive={campus_load_kw > 5} d="M300 130 L 335 130 L 335 35 L 370 35" color="#a78bfa" />
-                        <FlowLine isActive={batteryFlow > 1 && is_charging} d="M300 130 L 335 130 L 335 225 L 370 225" color="#22c55e" />
-                        <FlowLine isActive={batteryFlow < -1 && !is_charging} d="M370 225 L 335 225 L 335 130 L 300 130" color="#facc15" />
+                        <FlowLine isActive={is_charging && batteryFlow > 1} d="M300 130 L 335 130 L 335 225 L 370 225" color="#22c55e" /> {/* Charging */}
+                        <FlowLine isActive={!is_charging && batteryFlow < -1} d="M370 225 L 335 225 L 335 130 L 300 130" color="#facc15" /> {/* Discharging */}
                     </svg>
                 </div>
             );
@@ -303,13 +350,21 @@
                                 borderColor: '#f59e0b', 
                                 backgroundColor: 'rgba(245, 158, 11, 0.1)', 
                                 fill: true, 
-                                pointRadius: 2,
+                                pointRadius: 0,
                                 pointHoverRadius: 6,
-                                borderWidth: 3, 
+                                borderWidth: 2.5, 
                                 tension: 0.4,
-                                pointBackgroundColor: '#f59e0b',
-                                pointBorderColor: '#fff',
-                                pointBorderWidth: 2
+                            },
+                            { 
+                                label: 'Wind Generation', 
+                                data: data.wind_power_kw, 
+                                borderColor: '#22d3ee', 
+                                backgroundColor: 'rgba(34, 211, 238, 0.1)', 
+                                fill: true, 
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                borderWidth: 2.5, 
+                                tension: 0.4,
                             },
                             { 
                                 label: 'Campus Consumption', 
@@ -317,13 +372,10 @@
                                 borderColor: '#a78bfa', 
                                 backgroundColor: 'rgba(167, 139, 250, 0.1)', 
                                 fill: true, 
-                                pointRadius: 2,
+                                pointRadius: 0,
                                 pointHoverRadius: 6,
-                                borderWidth: 3, 
+                                borderWidth: 2.5, 
                                 tension: 0.4,
-                                pointBackgroundColor: '#a78bfa',
-                                pointBorderColor: '#fff',
-                                pointBorderWidth: 2
                             },
                             { 
                                 label: 'Battery Level', 
@@ -331,14 +383,11 @@
                                 borderColor: '#22c55e', 
                                 backgroundColor: 'rgba(34, 197, 94, 0.05)', 
                                 fill: false, 
-                                pointRadius: 2,
+                                pointRadius: 0,
                                 pointHoverRadius: 6,
-                                borderWidth: 3, 
+                                borderWidth: 2.5, 
                                 tension: 0.4, 
                                 yAxisID: 'y1',
-                                pointBackgroundColor: '#22c55e',
-                                pointBorderColor: '#fff',
-                                pointBorderWidth: 2
                             },
                         ]
                     },
@@ -450,11 +499,11 @@
             if (data.battery_percentage < 20) {
                 alerts.push({ type: 'warning', message: 'Battery level critically low', icon: '⚠️' });
             }
-            if (data.grid_power_kw > 100) {
-                alerts.push({ type: 'error', message: 'High grid dependency detected', icon: '🚨' });
+            if (data.grid_power_kw < -100) { // Check for significant import
+                alerts.push({ type: 'error', message: `High grid dependency detected (${Math.abs(data.grid_power_kw).toFixed(1)} kW import)`, icon: '🚨' });
             }
             if (data.renewable_generation_kw < 50 && new Date().getHours() >= 9 && new Date().getHours() <= 17) {
-                alerts.push({ type: 'info', message: 'Renewable generation below expected levels', icon: 'ℹ️' });
+                alerts.push({ type: 'info', message: 'Renewable generation below expected levels during daytime', icon: 'ℹ️' });
             }
 
             if (alerts.length === 0) return null;
@@ -475,32 +524,78 @@
             );
         };
 
+        // Smart Recommendations Component
+        const SmartRecommendations = ({ recommendations }) => {
+            if (!recommendations || recommendations.length === 0) {
+                return null;
+            }
+            
+            const iconMap = {
+                orange: '⚡️', // optimize
+                blue: '🔋', // monitor
+                green: '🌍', // export
+                red: '⚠️' // action, import, charge
+            };
+
+            return (
+                <div className="glass-card p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-white">Smart Optimization Recommendations</h3>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                            <span className="text-sm text-green-400 font-medium">AI Active</span>
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        {recommendations.map((rec, index) => (
+                            <div key={index} className={`rec-item rec-item-${rec.color_code}`}>
+                                <div className={`rec-priority-icon text-2xl rec-priority-text-${rec.color_code}`}>
+                                    {iconMap[rec.color_code] || '💡'}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <span className={`rec-priority-text rec-priority-text-${rec.color_code}`}>{rec.priority}</span>
+                                        <span className={`rec-tag rec-tag-${rec.color_code}`}>{rec.tag}</span>
+                                    </div>
+                                    <p className="rec-message">{rec.message}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
         function App() {
             const [latestData, setLatestData] = useState(null);
             const [historyData, setHistoryData] = useState(null);
             const [statsData, setStatsData] = useState(null);
+            const [recommendations, setRecommendations] = useState(null);
             const [error, setError] = useState(null);
             const [currentTime, setCurrentTime] = useState(new Date());
 
             const fetchData = async () => {
                 try {
-                    const [latestRes, historyRes, statsRes] = await Promise.all([
+                    const [latestRes, historyRes, statsRes, recsRes] = await Promise.all([
                         fetch(`${API_BASE_URL}/latest`), 
-                        fetch(`${API_BASE_URL}/history?minutes=30`), 
-                        fetch(`${API_BASE_URL}/stats`)
+                        fetch(`${API_BASE_URL}/history?minutes=5`), 
+                        fetch(`${API_BASE_URL}/stats`),
+                        fetch(`${API_BASE_URL}/recommendations`)
                     ]);
                     
-                    if (!latestRes.ok || !historyRes.ok || !statsRes.ok) {
+                    if (!latestRes.ok || !historyRes.ok || !statsRes.ok || !recsRes.ok) {
                         throw new Error('Network response was not ok. Please ensure the backend server is running.');
                     }
                     
                     const latest = await latestRes.json(); 
                     const history = await historyRes.json(); 
                     const stats = await statsRes.json();
+                    const recs = await recsRes.json();
                     
                     setLatestData(latest); 
                     setHistoryData(history); 
                     setStatsData(stats); 
+                    setRecommendations(recs);
                     setError(null);
                 } catch (e) { 
                     setError(e.message); 
@@ -536,7 +631,7 @@
                 );
             }
             
-            if (!latestData || !historyData || !statsData) {
+            if (!latestData || !historyData || !statsData || !recommendations) {
                 return (
                     <div className="min-h-screen flex items-center justify-center">
                         <div className="glass-card p-8 text-center">
@@ -559,6 +654,14 @@
                                 </p>
                             </div>
                             <div className="flex items-center gap-6">
+                                <a 
+                                    href={`${API_BASE_URL}/report/csv`}
+                                    download
+                                    className="px-4 py-2 bg-blue-600/80 hover:bg-blue-600 border border-blue-500 text-white font-medium rounded-lg text-sm transition-all duration-200 flex items-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Download Report
+                                </a>
                                 <div className="flex items-center gap-2">
                                     <StatusIndicator status="online" />
                                     <span className="text-sm text-green-400 font-medium">System Online</span>
@@ -600,12 +703,12 @@
                                 />
                                 
                                 <KpiCard 
-                                    title="Grid Import" 
-                                    subtitle="External Power Draw"
-                                    value={latestData.grid_power_kw.toFixed(1)} 
+                                    title="Grid Interaction" 
+                                    subtitle={latestData.grid_power_kw < 0 ? "Importing from Grid" : "Exporting to Grid"}
+                                    value={Math.abs(latestData.grid_power_kw).toFixed(1)} 
                                     unit="kW" 
                                     icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>} 
-                                    color="bg-gradient-to-br from-red-500 to-pink-500 shadow-red-500/20" 
+                                    color={latestData.grid_power_kw < 0 ? "bg-gradient-to-br from-red-500 to-pink-500 shadow-red-500/20" : "bg-gradient-to-br from-green-500 to-emerald-500 shadow-green-500/20"}
                                 />
                                 
                                 <div className="metric-card p-6">
@@ -637,11 +740,16 @@
                                                 ? 'bg-green-500/20 text-green-400' 
                                                 : 'bg-yellow-500/20 text-yellow-400'
                                         }`}>
-                                            {latestData.is_charging ? '⚡ Charging' : '🔋 Standby'}
+                                            {latestData.is_charging ? '⚡ Charging' : '🔋 Discharging / Standby'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
+                        </section>
+                        
+                        {/* Smart Recommendations */}
+                        <section>
+                            <SmartRecommendations recommendations={recommendations} />
                         </section>
 
                         {/* Energy Flow Diagram */}
@@ -762,4 +870,3 @@
     </script>
 </body>
 </html>
-
